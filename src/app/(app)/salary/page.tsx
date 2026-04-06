@@ -8,55 +8,38 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Badge from "@/components/ui/Badge";
-import DataTable from "@/components/tables/DataTable";
+import EmptyState from "@/components/ui/EmptyState";
 import SalaryForm from "@/components/forms/SalaryForm";
-import { Banknote, Plus } from "lucide-react";
+import { Banknote, Plus, Trash2 } from "lucide-react";
 import type { SalaryIncome } from "@/types";
 
 export default function SalaryPage() {
   const { salaryIncomes, totalSalary, loading, deleteSalary } =
     useFinanceStore();
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleDelete = async (row: SalaryIncome) => {
     if (!confirm("Delete this salary entry?")) return;
-    setDeleting(row.id);
     await deleteSalary(row.id);
-    setDeleting(null);
   };
 
-  const columns = [
-    {
-      key: "amount",
-      label: "Amount",
-      render: (row: SalaryIncome) => (
-        <span className="font-mono font-medium text-emerald-400">
-          {formatCurrency(row.amount)}
-        </span>
-      ),
-    },
-    {
-      key: "month",
-      label: "Month",
-      render: (row: SalaryIncome) => getMonthName(row.month),
-    },
-    {
-      key: "year",
-      label: "Year",
-      render: (row: SalaryIncome) => (
-        <span className="font-mono">{row.year}</span>
-      ),
-    },
-    {
-      key: "tag",
-      label: "Tag",
-      render: (row: SalaryIncome) => <Badge variant="accent">{row.tag}</Badge>,
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="skeleton h-10 w-48" />
+        <div className="skeleton h-28 w-full" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-20 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-text-primary">
           Salary Incomes
@@ -67,26 +50,59 @@ export default function SalaryPage() {
         </Button>
       </div>
 
+      {/* Total card */}
       <Card glow>
         <div className="flex items-center gap-2 mb-1">
           <Banknote className="h-5 w-5 text-emerald-400" />
           <span className="text-sm text-text-muted">Total Salary</span>
         </div>
         <p className="font-mono text-3xl font-bold text-text-primary">
-          {loading ? "..." : formatCurrency(totalSalary())}
+          {formatCurrency(totalSalary())}
         </p>
       </Card>
 
-      <Card>
-        <DataTable
-          columns={columns}
-          data={salaryIncomes}
-          loading={loading}
-          onDelete={handleDelete}
-          emptyTitle="No salary entries"
-          emptyDescription="Add your first salary income to get started"
-        />
-      </Card>
+      {/* List */}
+      {salaryIncomes.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="No salary entries"
+            description="Add your first salary income to get started"
+            icon={<Banknote className="h-12 w-12" />}
+          />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {salaryIncomes.map((item, index) => (
+            <Card key={item.id} className="flex items-center justify-between gap-3">
+              {/* Left: index + details */}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="font-mono text-xs text-text-muted shrink-0 w-6 text-center">
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-semibold text-emerald-400">
+                      {formatCurrency(item.amount)}
+                    </span>
+                    <Badge variant="accent">{item.tag}</Badge>
+                  </div>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {getMonthName(item.month)} {item.year}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: delete */}
+              <button
+                onClick={() => handleDelete(item)}
+                className="p-2 rounded-xl text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Modal
         open={modalOpen}

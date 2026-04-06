@@ -7,9 +7,9 @@ import { getMonthName } from "@/utils/getMonthName";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import DataTable from "@/components/tables/DataTable";
+import EmptyState from "@/components/ui/EmptyState";
 import OtherIncomeForm from "@/components/forms/OtherIncomeForm";
-import { Wallet, Plus } from "lucide-react";
+import { Wallet, Plus, Trash2 } from "lucide-react";
 import type { OtherIncome } from "@/types";
 
 export default function IncomePage() {
@@ -22,31 +22,19 @@ export default function IncomePage() {
     await deleteOtherIncome(row.id);
   };
 
-  const columns = [
-    { key: "title", label: "Title" },
-    { key: "date", label: "Date" },
-    {
-      key: "month",
-      label: "Month",
-      render: (row: OtherIncome) => getMonthName(row.month),
-    },
-    {
-      key: "year",
-      label: "Year",
-      render: (row: OtherIncome) => (
-        <span className="font-mono">{row.year}</span>
-      ),
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      render: (row: OtherIncome) => (
-        <span className="font-mono font-medium text-blue-400">
-          {formatCurrency(row.amount)}
-        </span>
-      ),
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="skeleton h-10 w-48" />
+        <div className="skeleton h-28 w-full" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton h-20 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,20 +54,50 @@ export default function IncomePage() {
           <span className="text-sm text-text-muted">Total Other Income</span>
         </div>
         <p className="font-mono text-3xl font-bold text-text-primary">
-          {loading ? "..." : formatCurrency(totalOtherIncome())}
+          {formatCurrency(totalOtherIncome())}
         </p>
       </Card>
 
-      <Card>
-        <DataTable
-          columns={columns}
-          data={otherIncomes}
-          loading={loading}
-          onDelete={handleDelete}
-          emptyTitle="No other income"
-          emptyDescription="Add your first income source"
-        />
-      </Card>
+      {otherIncomes.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="No other income"
+            description="Add your first income source"
+            icon={<Wallet className="h-12 w-12" />}
+          />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {otherIncomes.map((item, index) => (
+            <Card key={item.id} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="font-mono text-xs text-text-muted shrink-0 w-6 text-center">
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-primary truncate">
+                    {item.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="font-mono font-semibold text-blue-400 text-sm">
+                      {formatCurrency(item.amount)}
+                    </span>
+                    <span className="text-xs text-text-muted">
+                      {item.date} · {getMonthName(item.month)} {item.year}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => handleDelete(item)}
+                className="p-2 rounded-xl text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Modal
         open={modalOpen}
