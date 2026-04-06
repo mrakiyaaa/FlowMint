@@ -17,6 +17,7 @@ export default function SavingsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
+  const [source, setSource] = useState("Salary");
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -31,14 +32,19 @@ export default function SavingsPage() {
       return;
     }
     setFormLoading(true);
-    await addSaving({
+    const err = await addSaving({
       title: title.trim(),
       amount: Number(amount),
-      source: "Manual",
+      source,
     });
     setFormLoading(false);
+    if (err) {
+      setError(err);
+      return;
+    }
     setTitle("");
     setAmount("");
+    setSource("Salary");
     setModalOpen(false);
   };
 
@@ -146,6 +152,17 @@ export default function SavingsPage() {
             }}
             error={error}
           />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-text-muted">Source</label>
+            <select
+              className="input-base"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            >
+              <option value="Salary">Salary</option>
+              <option value="Other Income">Other Income</option>
+            </select>
+          </div>
           <div className="flex gap-3 pt-2">
             <Button
               type="button"

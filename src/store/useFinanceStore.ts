@@ -51,7 +51,7 @@ interface FinanceState {
   addExpense: (data: Omit<Expense, "id" | "user_id">) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
 
-  addSaving: (data: Omit<Saving, "id" | "user_id">) => Promise<void>;
+  addSaving: (data: Omit<Saving, "id" | "user_id">) => Promise<string | null>;
   deleteSaving: (id: string) => Promise<void>;
 
   addAutomation: (data: Omit<Automation, "id" | "user_id">) => Promise<void>;
@@ -135,12 +135,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Salary
   addSalary: async (data) => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data: row, error } = await supabase
       .from("salary_incomes")
-      .insert(data)
+      .insert({ ...data, user_id: user.id })
       .select()
       .single();
-    if (!error && row) set((s) => ({ salaryIncomes: [row, ...s.salaryIncomes] }));
+    if (error) { console.error("addSalary:", error.message); return; }
+    if (row) set((s) => ({ salaryIncomes: [row, ...s.salaryIncomes] }));
   },
   deleteSalary: async (id) => {
     const supabase = createClient();
@@ -151,12 +154,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Other Income
   addOtherIncome: async (data) => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data: row, error } = await supabase
       .from("other_incomes")
-      .insert(data)
+      .insert({ ...data, user_id: user.id })
       .select()
       .single();
-    if (!error && row) set((s) => ({ otherIncomes: [row, ...s.otherIncomes] }));
+    if (error) { console.error("addOtherIncome:", error.message); return; }
+    if (row) set((s) => ({ otherIncomes: [row, ...s.otherIncomes] }));
   },
   deleteOtherIncome: async (id) => {
     const supabase = createClient();
@@ -167,12 +173,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Expenses
   addExpense: async (data) => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data: row, error } = await supabase
       .from("expenses")
-      .insert(data)
+      .insert({ ...data, user_id: user.id })
       .select()
       .single();
-    if (!error && row) set((s) => ({ expenses: [row, ...s.expenses] }));
+    if (error) { console.error("addExpense:", error.message); return; }
+    if (row) set((s) => ({ expenses: [row, ...s.expenses] }));
   },
   deleteExpense: async (id) => {
     const supabase = createClient();
@@ -183,12 +192,16 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Savings
   addSaving: async (data) => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return "Not authenticated";
     const { data: row, error } = await supabase
       .from("savings")
-      .insert(data)
+      .insert({ ...data, user_id: user.id })
       .select()
       .single();
-    if (!error && row) set((s) => ({ savings: [row, ...s.savings] }));
+    if (error) { console.error("addSaving:", error.message); return error.message; }
+    if (row) set((s) => ({ savings: [row, ...s.savings] }));
+    return null;
   },
   deleteSaving: async (id) => {
     const supabase = createClient();
@@ -199,12 +212,15 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // Automations
   addAutomation: async (data) => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data: row, error } = await supabase
       .from("automations")
-      .insert(data)
+      .insert({ ...data, user_id: user.id })
       .select()
       .single();
-    if (!error && row) set((s) => ({ automations: [...s.automations, row] }));
+    if (error) { console.error("addAutomation:", error.message); return; }
+    if (row) set((s) => ({ automations: [...s.automations, row] }));
   },
   toggleAutomation: async (id, is_active) => {
     const supabase = createClient();
@@ -223,6 +239,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   runAutomations: async () => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
     const { automations } = get();
@@ -234,7 +252,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       const { data: existing } = await supabase
         .from("notifications")
         .select("id")
-        .eq("user_id", auto.user_id)
+        .eq("user_id", user.id)
         .like("message", `%Automation "${auto.label}"%`)
         .gte("created_at", `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`)
         .limit(1);
@@ -243,12 +261,14 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
       if (auto.action_type === "Save") {
         await supabase.from("savings").insert({
+          user_id: user.id,
           title: auto.target,
           amount: auto.amount,
           source: auto.from_source,
         });
       } else {
         await supabase.from("expenses").insert({
+          user_id: user.id,
           title: auto.target,
           amount: auto.amount,
           date: new Date().toISOString().split("T")[0],
@@ -259,6 +279,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       }
 
       await supabase.from("notifications").insert({
+        user_id: user.id,
         message: `Automation "${auto.label}" executed: ${auto.action_type} LKR ${auto.amount.toLocaleString()} to ${auto.target}`,
         is_read: false,
       });
